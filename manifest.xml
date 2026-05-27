@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+  xsi:type="MailApp">
+
+  <Id>bf6d20a9-cb71-4826-bc0d-6a53cb4cc3d3</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Cedric</ProviderName>
+  <DefaultLocale>fr-FR</DefaultLocale>
+  <DisplayName DefaultValue="Vérification pièce jointe" />
+  <Description DefaultValue="Avertit avant l'envoi si le message évoque une pièce jointe sans en contenir." />
+  <IconUrl DefaultValue="https://cedhub2026.github.io/verif-pj/icon-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://cedhub2026.github.io/verif-pj/icon-128.png" />
+  <SupportUrl DefaultValue="https://cedhub2026.github.io/verif-pj/" />
+
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.12" />
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://cedhub2026.github.io/verif-pj/commands.html" />
+        <RequestedHeight>250</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadWriteItem</Permissions>
+
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit" />
+  </Rule>
+
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.12">
+          <bt:Set Name="Mailbox" />
+        </bt:Sets>
+      </Requirements>
+
+      <Hosts>
+        <Host xsi:type="MailHost">
+
+          <Runtimes>
+            <Runtime resid="WebViewRuntime.Url">
+              <Override type="javascript" resid="JSRuntime.Url" />
+            </Runtime>
+          </Runtimes>
+
+          <DesktopFormFactor>
+            <FunctionFile resid="WebViewRuntime.Url" />
+
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <!-- SendMode :
+                       PromptUser = avertit + bouton "Envoyer quand même" (ton besoin)
+                       SoftBlock  = bloque, mais laisse passer si l'add-in est indisponible (hors ligne)
+                       Block      = blocage strict, MAIS déploiement par l'admin uniquement -->
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser" />
+              </LaunchEvents>
+              <SourceLocation resid="WebViewRuntime.Url" />
+            </ExtensionPoint>
+          </DesktopFormFactor>
+
+        </Host>
+      </Hosts>
+
+      <Resources>
+        <bt:Urls>
+          <bt:Url id="WebViewRuntime.Url" DefaultValue="https://cedhub2026.github.io/verif-pj/commands.html" />
+          <bt:Url id="JSRuntime.Url" DefaultValue="https://cedhub2026.github.io/verif-pj/commands.js" />
+        </bt:Urls>
+        <bt:ShortStrings>
+          <bt:String id="DisplayName" DefaultValue="Vérification pièce jointe" />
+        </bt:ShortStrings>
+      </Resources>
+
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>
