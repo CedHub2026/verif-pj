@@ -2,56 +2,54 @@
  * Vérification "pièce jointe oubliée" — Smart Alerts (OnMessageSend)
  * Fonctionne sur Outlook Web, nouveau Outlook Windows, Outlook classique Windows (>= 2412), Mac (préversion).
  *
- * Logique :
- *   1. Lit l'objet + le corps (texte brut).
- *   2. Cherche une mention de pièce jointe (ci-joint, PJ, pièce jointe, attachment, attachement, devis, etc.).
- *   3. Si mention trouvée -> vérifie qu'au moins une pièce jointe NON inline est présente.
- *   4. Sinon -> affiche un avertissement avec option "Envoyer quand même" (SendMode=PromptUser dans le manifeste).
+ * Lecture de l'objet, du corps et des pièces jointes EN PARALLÈLE (3 appels simultanés),
+ * puis décision une fois les trois revenus -> temps = lecture la plus lente, pas la somme.
  */
 
-// Expression de détection. Insensible à la casse. \b = limite de mot.
-// "devis" est volontairement inclus (cf. demande) : il déclenchera aussi sur des phrases sans PJ
-// (ex. "je prépare votre devis"). Comme le mode est "PromptUser", ce n'est jamais bloquant : un clic sur
-// "Envoyer quand même" suffit. Retire "devis" du motif si les faux positifs te gênent.
+// Motif de détection. Insensible à la casse. \b = limite de mot.
+// "devis" déclenche seul (cf. demande) ; non bloquant grâce au mode "PromptUser".
 var MOTIF_PJ = /(\bci-?joints?\b|\bci-?jointe?s?\b|\bpi[eè]ces?\s+jointes?\b|\bp\.?\s?j\.?\b|\ben\s+pi[eè]ce\s+jointe\b|\bjoint\s+[aà]\s+ce\b|\battach(?:ment|ed|e)?\b|\battachement\b|\bveuillez\s+trouver\b|\bvous\s+trouverez\b|\bdevis\b)/i;
 
 function onMessageSendHandler(event) {
   var item = Office.context.mailbox.item;
 
-  item.subject.getAsync(function (resObjet) {
-    var objet = (resObjet.status === Office.AsyncResultStatus.Succeeded && resObjet.value) ? resObjet.value : "";
+  var restants = 3;
+  var objet = "";
+  var corps = "";
+  var aPieceJointe = false;
 
-    item.body.getAsync(Office.CoercionType.Text, function (resCorps) {
-      var corps = (resCorps.status === Office.AsyncResultStatus.Succeeded && resCorps.value) ? resCorps.value : "";
-      var texte = objet + "\n" + corps;
+  function decider() {
+    restants--;
+    if (restants > 0) return; // on attend que les 3 lectures soient revenues
 
-      // Pas de mention de PJ -> on laisse partir.
-      if (!MOTIF_PJ.test(texte)) {
-        event.completed({ allowEvent: true });
-        return;
-      }
-
-      // Mention détectée -> on vérifie les pièces jointes réelles.
-      item.getAttachmentsAsync(function (resPJ) {
-        var aPieceJointe = false;
-        if (resPJ.status === Office.AsyncResultStatus.Succeeded && resPJ.value) {
-          // On ne compte que les PJ NON inline (les images de signature/corps sont inline -> ignorées).
-          aPieceJointe = resPJ.value.some(function (pj) { return pj.isInline === false; });
-        }
-
-        if (aPieceJointe) {
-          event.completed({ allowEvent: true });
-        } else {
-          event.completed({
-            allowEvent: false,
-            // Limite ~150 caractères pour le message court.
-            errorMessage: "Le message mentionne une pièce jointe (ci-joint, PJ, devis…) mais aucune n'est attachée. Vérifie avant d'envoyer."
-          });
-        }
+    var texte = objet + "\n" + corps;
+    if (aPieceJointe || !MOTIF_PJ.test(texte)) {
+      event.completed({ allowEvent: true });
+    } else {
+      event.completed({
+        allowEvent: false,
+        errorMessage: "Le message mentionne une pièce jointe (ci-joint, PJ, devis…) mais aucune n'est attachée. Vérifie avant d'envoyer."
       });
-    });
+    }
+  }
+
+  // Les trois lectures partent en même temps.
+  item.subject.getAsync(function (r) {
+    if (r.status === Office.AsyncResultStatus.Succeeded && r.value) objet = r.value;
+    decider();
+  });
+
+  item.body.getAsync(Office.CoercionType.Text, function (r) {
+    if (r.status === Office.AsyncResultStatus.Succeeded && r.value) corps = r.value;
+    decider();
+  });
+
+  item.getAttachmentsAsync(function (r) {
+    if (r.status === Office.AsyncResultStatus.Succeeded && r.value) {
+      aPieceJointe = r.value.some(function (pj) { return pj.isInline === false; });
+    }
+    decider();
   });
 }
 
-// Enregistrement du handler auprès du runtime événementiel.
 Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
